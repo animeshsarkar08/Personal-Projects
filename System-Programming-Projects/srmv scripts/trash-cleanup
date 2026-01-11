@@ -1,0 +1,59 @@
+#!/usr/bin/bash
+
+TRASH_DIR="$HOME/.trash"
+FILES_DIR="$TRASH_DIR/files"
+INFO_DIR="$TRASH_DIR/info"
+
+# current time
+cur_timestamp=$(date +%s)
+
+# maximum age of a target (120 days) in seconds i.e. 10368000 sec
+max_age=$((120 * 24 * 60 * 60)) 
+
+# traversing over the info folder to determine if any target is aged for clean-up
+# * -> wild card; *.info -> anytarget with ".info"
+for target in "$FILES_DIR"/*; do
+	# checking if any info target exist or not using target test operator(-e)
+	# if path not exists [ -e "$info" ] will return false
+	[ -e "$target" ] || continue # false ||(OR) continue -> skip to next target
+
+	# target = /home/animeshsarkar/.trash/files/1768058958
+	target_id=$(basename "$target") # 1768058958 (basename) 
+	info="$INFO_DIR/$target_id.info" # /home/animeshsarkar/.trash/info/1768058958.info
+
+	# else extract the deleted time in sec
+	deletedAt_sec=$(awk -F= '$1=="DeletedAt_sec" && $2 ~ /^[0-9]+$/ { print $2 }' "$info")
+
+	# using "awk" cmd for extracting; 
+	# -F-> field seperator; here "equals to(=)" serves as field separator
+	# $1-> field 1; $2->field 2; ... $n->field n;
+	# $1="DeletedAt_sec"; $2= is the timestamp(170001234)
+	# 170001234->^(starting with); [0-9]+(one or more(plus sign "+") digits); $(ends with)
+	# print $2 -> print field 2
+	# $info -> the target
+
+	if (( cur_timestamp-deletedAt_sec > max_age )); then
+		# flag "-f" for force remove (no prompts)
+		# flag "-r" for recursive for deleting folders
+
+		# flag "-d" checks if the target is a directory
+		if [ -d "$target" ]; then
+			rm -rf "$target" 
+		else # the target is a file
+			rm -f "$target"
+		fi
+
+		rm -f "$info" 
+	fi
+	
+done
+
+
+
+
+
+
+
+
+
+

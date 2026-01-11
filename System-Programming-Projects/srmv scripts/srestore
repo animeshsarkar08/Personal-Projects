@@ -1,0 +1,127 @@
+#!/usr/bin/bash
+
+FILES_DIR="$HOME/.trash/files"
+INFO_DIR="$HOME/.trash/info"
+
+# Exit if no files (safe)
+shopt -s nullglob
+
+# Header
+printf "%-5s %-20s %-22s %s\n" "Index" "ID" "DeletedAt" "OriginalPath"
+printf "%-5s %-20s %-22s %s\n" "-----" "--------------------" "----------------------" "-------------------------------------------------"
+
+index=1
+
+# Loop over .info files sorted numerically, newest first
+printf '%s\n' "$INFO_DIR"/*.info |
+sort -nr |
+ while IFS= read -r info; do # here is info is the variable where the input value is stored
+ #   item_info=$(basename "$info")
+
+	id=$(awk -F= '$1=="Id" && $2 ~ /^[0-9]+$/ { print $2 }' "$info")
+
+	delete_loc=$(awk -F= '$1=="OriginalPath" { print $2 }' "$info")
+
+	delete_time=$(awk -F= '$1=="DeletedAt_sec" && $2 ~ /^[0-9]+$/ { print $2 }' "$info")
+	# convert into humnan readable
+    deleted_human=$(date -d "@$delete_time" "+%Y-%m-%d %H:%M:%S")
+	
+    printf "%-5d %-20s %-22s %s\n" "$index" "$id" "$deleted_human" "$delete_loc"
+	
+	index=$((index + 1))
+done
+
+# user prompt
+read -p "Enter the index of the file to restore: " choice
+
+# choice should be a vaild number
+if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+    echo "Invalid input"
+    exit 1
+fi
+
+index=1
+
+printf '%s\n' "$INFO_DIR"/*.info |
+sort -nr |
+ while IFS= read -r info; do  
+	 # if index is not e
+	 if [ "$index" -ne "$choice" ]; then
+		 index=$((index + 1))
+		 continue
+	 fi
+	
+	
+	 #item_info=$(basename "$info")
+	 
+	id=$(awk -F= '$1=="Id" && $2 ~ /^[0-9]+$/ { print $2 }' "$info")
+
+	 original_path=$(awk -F= '$1=="OriginalPath" { print $2 }' "$info")
+
+	 if [ ! -e "$FILES_DIR/$id" ] ; then
+		echo "Sorry, file not found."
+		exit 1
+	 fi
+
+	 # incase if the directory or the path is removed create one
+	 mkdir -p "$(dirname "$original_path")"
+
+	 # renaming and moving the file to it's original location
+	 mv "$FILES_DIR/$id" "$original_path"
+     rm -f "$info"
+
+	 echo "Restored: $original_path"
+     break
+
+ done
+
+# Explanation 
+
+# printf "format specifier" {arguments with delimetier space}
+# For example printf '%d\n' 1 23 99999
+# OUTPUT:
+# 1
+# 23
+# 99999
+
+# similarly "$INFO_DIR"/*.info = /home/animeshsarkar/.trash/info/1768152296.info /home/animeshsarkar/.trash/info/1768153430.info
+
+
+# printf "%s\n" "$INFO_DIR"/*.info does the same as this 
+# /home/animeshsarkar/.trash/info/1768152296.info
+# /home/animeshsarkar/.trash/info/1768153430.info
+
+# sort cmd sort these strings but in reverse numeric order (-n -r or -nr)
+# /home/animeshsarkar/.trash/info/1768153430.info
+# /home/animeshsarkar/.trash/info/1768152296.info
+
+# read cmd will read (fgets; i.e. reading user inputs), but with IFS and raw literal(-r) flag
+
+# IFS(Internal Field Separator) is used to prevent spliting the lines at spaces or tabs
+# now by default IFS is set to spaces,tabs or newline 
+# to avoid this we set the value of IFS={empty} i.e. disabling IFS
+
+# raw literal (-r) to treat every character as it is, not change; mainly use to treat the backslash(\) as backslash and not escape character
+
+# (Default way)
+# read var <<< "folder\note 1.txt"
+# echo var
+
+# OUTPUT:
+# folder (interpret "\n" as newline char as read cmd treat backslash(\) as escape char)
+# ote (stop reading when hit by space)
+
+# # (Raw way)
+# read -r var <<< "folder\note 1.txt"
+
+# OUTPUT:
+# folder\note (stop reading when hit by space)
+
+
+# # (Safe way)
+# IFS= read -r var <<< "folder\note 1.txt"
+
+# OUTPUT:
+# folder\note 1.txt
+
+

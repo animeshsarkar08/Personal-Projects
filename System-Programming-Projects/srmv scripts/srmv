@@ -1,0 +1,67 @@
+#!/usr/bin/bash
+
+#assigning paths
+TRASH_DIR="$HOME/.trash" 
+FILES_DIR="$TRASH_DIR/files"
+INFO_DIR="$TRASH_DIR/info"
+
+# if multiple files to be deleted at once there may be collisions
+count=0
+
+# $# = number of all arguments if no. of args are 0 then exit 
+if [ "$#" -eq 0 ]; then 
+	echo "Usage: srmv FILE..."
+	exit 1
+elif [ "$#" -gt 1 ]; then # if no. of args > 1
+	count=$((count + 1))
+fi
+
+# $@ = all argument values
+for cur_file in "$@"; do
+	# -e = file test operator, returns true if the path exists; it is safe cuz checks the path to the file
+	# ! -e = path not exists
+	if [ ! -e "$cur_file" ]; then
+		echo"sremove: cannot remove '$cur_file':No such file"
+		# if not file exist skip to next file
+		continue
+	fi
+
+		# extracting the absolute path of the file
+		abs_path=$(realpath "$cur_file") 
+		#realpath is command-line utility used to resolve a file path to is absolute
+
+		# Generating unique filenames to avoid collisions
+		timestamp_sec=$(date +%s) #current date/time in nanoseconds
+		#timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+		timestamp=$(date -d "@$timestamp_sec")
+		file_basename=$(basename "$cur_file") #remove directory path and gives the filename(basename)
+		#trash_name=${file_basename}_${timestamp_sec} #concatenating the strings 
+
+		# if count=0; there will be no change in file_id to change the id
+		# if count=1; then in each iteration id will be incremented by 1
+		# even if the timestamp is same for multiple files the id will be different for each one
+		id=$((timestamp_sec + count))
+
+		# move the file (Main part)
+		mv "$cur_file" "$FILES_DIR/$id"
+		# it will first rename $cur_file to $trash_name regarless of extension of $cur_file and then move to the destination directory
+
+		# incrementing count if count=0; then for each iteration count will be 0
+		# if it is count=1 then for each iteration count will increment by 1 (multiples deleted)
+		count=$((count + count))
+
+
+		# saving the metadata (metadata is the information about a data or background info of a data)
+
+		# "<<-EOF"(use for clean code) is a "Heredoc" which allows multiple lines of text feed into a command(in this case "cat" cmd)
+		cat> "$INFO_DIR/$id.info" <<-EOF
+		Id=$id
+		Filename=$file_basename
+		OriginalPath=$abs_path
+		DeletedAt_sec=$timestamp_sec
+		DeletedAt=$timestamp
+		EOF
+
+		echo "Move '$cur_file' to trash"
+	done
+
